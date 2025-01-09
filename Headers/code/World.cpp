@@ -39,7 +39,7 @@ void Scene::loadScene(glm::mat4 view, glm::mat4 projection) {
 	objectShader.setMat4("projection", projection);
 	objectShader.setMat4("view", view);
 
-	loadObjects();
+	//loadObjects();
 
 }
 
