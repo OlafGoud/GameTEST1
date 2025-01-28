@@ -7,22 +7,32 @@
 #include "Headers/Camera.h"
 #include "Headers/Model.h"
 #include "Headers/World.h"
-
-
+#include "Headers/Game.h"
+#include "Headers/stb_image.h"
 #include <iostream>
 
+
+struct WorldObjects
+{
+    Model model;
+    glm::vec3 location;
+    float rotation;
+    int number;
+};
+
+int selectedObjectNumber = -1;
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 int setSettings();
 glm::vec3 getWorldPosition();
+void moveCar(WorldObjects& car, bool forward, bool backward, bool turnLeft, bool turnRight, float deltaTime, float speed);
 // settings
 const unsigned int SCR_WIDTH = 1400;
 const unsigned int SCR_HEIGHT = 800;
-Scene world;
 // camera
-Camera camera(glm::vec3(0.0f, 20.0f, 0.0f));
+Camera camera(glm::vec3(0.0f, 10.0f, 0.0f));
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
@@ -32,22 +42,24 @@ float lastFrame = 0.0f;
 GLFWwindow* window;
 // lighting
 int number = 0;
-
-
+std::vector<World> worldInst;
+std::vector<WorldObjects> modelList;
 
 int main()
 {
     if (setSettings() == -1) {
         return -1;
     }
-    
 
-    world = Scene(camera);
-    Shader* terrainShader = world.getTerrainShader();
-    Shader* objectShader = world.getObjectShader();
+    Game game = Game();
 
-    Shader lightShader("resources/shaders/rotCubeLight.vs", "resources/shaders/rotCubeLight.fs");
+    worldInst.push_back(World());
 
+
+    Shader groundShader("resources/shaders/game.vs", "resources/shaders/game.fs");
+    Shader objShader("resources/shaders/basic.vs", "resources/shaders/basic.fs");
+    modelList.push_back({ Model("resources/objects/cube.obj") , glm::vec3(1000000.0f, 1000000.0f, 1000000.0f), 0, -1});
+    modelList.push_back({ Model("resources/objects/tractor/tractor1.obj") , glm::vec3(0.0f, 0.2f, 0.0f), 40, 1 });
     float vertices[] = {
         -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
          0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
@@ -109,14 +121,10 @@ int main()
     glEnableVertexAttribArray(1);
 
 
-
-
-
-
-
-
-
-
+    groundShader.use();
+    groundShader.setVec3("lightColor", 1.0f, 1.0f, 1.0f);
+    groundShader.setVec3("lightPos", 0, 20, 0);
+    
 
 
 
@@ -143,42 +151,26 @@ int main()
 
         glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
         glm::mat4 view = camera.GetViewMatrix();
-        (*terrainShader).use();
-        (*terrainShader).setMat4("projection", projection);
-        (*terrainShader).setMat4("view", view);
-        (*objectShader).use();
-        (*objectShader).setMat4("projection", projection);
-        (*objectShader).setMat4("view", view);
 
+        groundShader.use();
         
-        // render the loaded model
-        world.loadScene(view, projection);
-
-        if (!(number == 0)) {
-            world.loadPreview(number, getWorldPosition());
+        groundShader.setVec3("viewPos", camera.Position);
+        groundShader.setMat4("projection", projection);
+        groundShader.setMat4("view", view);
+        worldInst[0].render(groundShader, cubeVAO);
+        
+        for (auto vehicleModel : modelList) {
+            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::translate(model, vehicleModel.location);
+            model = glm::rotate(model, glm::radians(vehicleModel.rotation), glm::vec3(0.0f, 1.0f, 0.0f));
+            objShader.setMat4("model", model);
+            vehicleModel.model.Draw(objShader);
         }
+
         
-        //world.loadCube(view, projection, 100 * currentFrame);
-
-        lightShader.use();
-        lightShader.setVec3("objectColor", 1.0f, 0.5f, 0.31f);
-        lightShader.setVec3("lightColor", 1.0f, 1.0f, 1.0f);
-        lightShader.setVec3("lightPos", glm::vec3(3, 10, 3));
-        lightShader.setVec3("viewPos", camera.Position);
-        lightShader.setMat4("projection", projection);
-        lightShader.setMat4("view", view);
-
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 3.0f, 1.0f));
-        model = glm::scale(model, glm::vec3(2.0f)); // a smaller cube
-        model = glm::rotate(model, glm::radians(100 * currentFrame), glm::vec3(0.0f, 1.0f, 0.0f));
-
-        lightShader.setMat4("model", model);
-        glBindVertexArray(cubeVAO);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
 
 
-
+        
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
@@ -198,45 +190,28 @@ int main()
 // ---------------------------------------------------------------------------------------------------------
 void processInput(GLFWwindow* window)
 {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, true);
-
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-
-        if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
-            camera.ProcessKeyboard(FORWARD, deltaTime * 3);
-        }
-        else {
-            camera.ProcessKeyboard(FORWARD, deltaTime);
-        }
     }
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
-            camera.ProcessKeyboard(BACKWARD, deltaTime * 3);
-        }
-        else {
-            camera.ProcessKeyboard(BACKWARD, deltaTime);
-        }
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
-            camera.ProcessKeyboard(LEFT, deltaTime * 3);
-        }
-        else {
-            camera.ProcessKeyboard(LEFT, deltaTime);
-        }
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
-            camera.ProcessKeyboard(RIGHT, deltaTime * 3);
-        }
-        else {
-            camera.ProcessKeyboard(RIGHT, deltaTime);
-        }
     if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) {
         number = 1;
     }
     if (glfwGetKey(window, GLFW_KEY_0) == GLFW_PRESS) {
         number = 0;
     }
+
+    bool forward = glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS;
+    bool backward = glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS;
+    bool turnLeft = glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS;
+    bool turnRight = glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS;
+    if (forward == true || backward == true || turnLeft == true || turnRight == true) {
+        for (auto& model : modelList) {
+            if (model.number == selectedObjectNumber) {
+                moveCar(model, forward, backward, turnLeft, turnRight, deltaTime, 5.0f);
+            }
+        }
+    }
+    // Update car movement
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
@@ -266,7 +241,18 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
         lastY = ypos;
 
         // Apply the offset to the camera's movement logic
-        camera.ProcessMouseMovement(xoffset, yoffset);
+        camera.processCameraMovement(xoffset, yoffset);
+    }
+    else if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+        float xoffset = xpos - lastX;
+        float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+
+        // Update the last known position for the next frame
+        lastX = xpos;
+        lastY = ypos;
+
+        // Apply the offset to the camera's movement logic
+        camera.prosessWorldMovement(xoffset, yoffset);
     }
     else {
         // Reset the last known position when the mouse button is released
@@ -285,60 +271,10 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 }
 
 
-
-// Function to unproject screen space coordinates to world coordinates
-glm::vec3 unProjectMousePosition(float winX, float winY, float winZ,
-    const glm::mat4& projectionMatrix,
-    const glm::mat4& viewMatrix,
-    const glm::ivec4& viewport)
-{
-    // Convert screen space to NDC
-    float ndcX = (winX - viewport.x) / viewport.z * 2.0f - 1.0f;
-    float ndcY = (winY - viewport.y) / viewport.w * 2.0f - 1.0f;
-    float ndcZ = 2.0f * winZ - 1.0f;
-
-    // Combine projection and view matrices
-    glm::mat4 combined = projectionMatrix * viewMatrix;
-
-    // Inverse of the combined matrix
-    glm::mat4 inverseCombined = glm::inverse(combined);
-
-    // Unproject the normalized device coordinates to world space
-    glm::vec4 ndcPos(ndcX, ndcY, ndcZ, 1.0f);
-    glm::vec4 worldPos = inverseCombined * ndcPos;
-
-    // Convert to 3D world position
-    glm::vec3 worldPos3D = glm::vec3(worldPos) / worldPos.w; // Homogeneous division
-    return worldPos3D;
-}
-
-// Function to get the intersection point with the ground plane (y = 0)
-glm::vec3 placeObjectOnGround(float winX, float winY, float winZ,
-    const glm::mat4& projectionMatrix,
-    const glm::mat4& viewMatrix,
-    const glm::ivec4& viewport)
-{
-    // Unproject the mouse position to world space
-    glm::vec3 worldPos = unProjectMousePosition(winX, winY, winZ, projectionMatrix, viewMatrix, viewport);
-
-    // Assume the ground is at y = 0, so find the intersection point with the plane y = 0
-    if (worldPos.y != 0.0f) {
-        // Find the ratio of how far along the ray the intersection occurs (t)
-        float t = -worldPos.y / worldPos.z;
-
-        // Calculate the intersection point with the ground plane (y = 0)
-        glm::vec3 intersectionPoint = worldPos + t * (worldPos - glm::vec3(worldPos.x, 0.0f, worldPos.z));
-        return intersectionPoint;
-    }
-
-    // If the y position is already on the ground, return the current position
-    return worldPos;
-}
-
 glm::vec3 getWorldPosition() {
     double mouseX, mouseY;
     glfwGetCursorPos(window, &mouseX, &mouseY);
-    /*
+    
     float depth;
     glReadPixels(mouseX, SCR_HEIGHT - (mouseY), 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depth);
     glm::vec4 clipCoords = glm::vec4((((2.0f * (mouseX)) / SCR_WIDTH) - 1.0f), (1.0f - (2.0f * (mouseY)) / SCR_HEIGHT), depth * 2.0f - 1.0f, 1.0f);
@@ -349,38 +285,6 @@ glm::vec3 getWorldPosition() {
     glm::vec4 worldCoords = glm::inverse(camera.GetViewMatrix()) * viewCoords;
     glm::vec3 worldPosition = glm::vec3(worldCoords);
     
-    return worldPosition;
-    */
-
-
-    // Step 1: Read depth at mouse position
-    float depth;
-    glReadPixels(mouseX, SCR_HEIGHT - mouseY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depth);
-
-    // Step 2: Convert screen-space coordinates to clip-space (NDC)
-    glm::vec4 clipCoords = glm::vec4(
-        (((2.0f * (float)mouseX) / (float)SCR_WIDTH) - 1.0f), // x
-        (1.0f - (2.0f * (float)mouseY) / (float)SCR_HEIGHT), // y
-        depth * 2.0f - 1.0f, // z (depth)
-        1.0f
-    );
-
-    // Step 3: Get the projection matrix from the camera
-    glm::mat4 projectionMatrix = camera.GetProjectionMatrix((float)SCR_WIDTH / (float)SCR_HEIGHT);
-
-    // Step 4: Unproject to view space (inverse of the projection matrix)
-    glm::vec4 viewCoords = glm::inverse(projectionMatrix) * clipCoords;
-    viewCoords /= viewCoords.w;  // Divide by w to get normalized coordinates in view space
-
-    // Step 5: Convert from view space to world space
-    glm::vec4 worldCoords = glm::inverse(camera.GetViewMatrix()) * viewCoords;
-
-    // Step 6: Convert the world position to a 3D vector
-    glm::vec3 worldPosition = glm::vec3(worldCoords);
-
-    // Step 7: Ensure the y value stays at the fixed position (e.g., y = 0)
-    worldPosition.y = world.getHeightMap().at(worldPosition.x).at(worldPosition.z); // Set the world position to the fixed Y value (e.g., ground plane)
-    cout << worldPosition.y << "\n";
     return worldPosition;
 }
 
@@ -393,10 +297,27 @@ void mouseClickCallback(GLFWwindow* window, int button, int action, int mods) {
     }
 
     glm::vec3 worldPosition = getWorldPosition();
-    if (worldPosition.x < 50 && worldPosition.x > 20 && worldPosition.z < 50 && worldPosition.z > 20) {
-        world.addComponent(worldPosition);
+    for (auto& model : modelList) {
+        if (model.number == -1) {
+            continue;
+        }
+
+        if ((model.location.x + 0.5f > worldPosition.x && model.location.x - 0.5f < worldPosition.x) && (model.location.z + 0.5f > worldPosition.z && model.location.z - 0.5f < worldPosition.z)) {
+            if (model.number == selectedObjectNumber) {
+                selectedObjectNumber = -1;
+                std::cout << "vehicle unselected" << "\n";
+
+            }
+            else {
+                selectedObjectNumber = model.number;
+                std::cout << "vehicle selected" << "\n";
+            }
+            
+        }
     }
-    std::cout << "pos: " << worldPosition.x << ", " << worldPosition.y << ", " << worldPosition.z << "\n";
+
+
+    worldInst[0].changeGroundType(worldPosition);
     
 }
 
@@ -439,3 +360,39 @@ int setSettings() {
 
     return 0;
 }
+
+
+void moveCar(WorldObjects& car, bool forward, bool backward, bool turnLeft, bool turnRight, float deltaTime, float speed) {
+    // Update rotation for turning (Y-axis rotation)
+    if (turnLeft) {
+        car.rotation += 90.0f * deltaTime; // Counterclockwise rotation
+    }
+    if (turnRight) {
+        car.rotation -= 90.0f * deltaTime; // Clockwise rotation
+    }
+
+    // Normalize the rotation angle to keep it between 0 and 360 degrees
+    if (car.rotation > 360.0f) car.rotation -= 360.0f;
+    if (car.rotation < 0.0f) car.rotation += 360.0f;
+
+    // Calculate the forward direction based on the car's rotation (ignore the Y-axis for movement)
+    glm::vec3 forwardDirection;
+    forwardDirection.x = -cos(glm::radians(car.rotation -90));  // X movement based on rotation
+    forwardDirection.z = sin(glm::radians(car.rotation -90));  // Z movement based on rotation
+    forwardDirection.y = 0.0f;  // Ensure no vertical movement
+
+    forwardDirection = glm::normalize(forwardDirection); // Normalize to keep the speed consistent
+
+    // Update the position for forward/backward movement
+    if (forward) {
+        car.location += forwardDirection * speed * deltaTime; // Move forward along the direction
+    }
+    if (backward) {
+        car.location -= forwardDirection * speed * deltaTime; // Move backward (opposite direction)
+    }
+
+    // Debugging output to verify the movement and rotation
+    std::cout << "Rotation: " << car.rotation << " degrees\n";
+    std::cout << "Location: x: " << car.location.x << ", y: " << car.location.y << ", z: " << car.location.z << "\n";
+}
+

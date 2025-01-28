@@ -67,29 +67,23 @@ public:
     }
 
     // processes input received from any keyboard-like input system. Accepts input parameter in the form of camera defined ENUM (to abstract it from windowing systems)
-    void ProcessKeyboard(Camera_Movement direction, float deltaTime)
-    {
-        float velocity = MovementSpeed * deltaTime;
-        // Move forward and backward along the XZ plane
-        if (direction == FORWARD)
-            Position += glm::vec3(Front.x, 0.0f, Front.z) * (velocity * 2); // Project Front onto XZ
-        if (direction == BACKWARD)
-            Position -= glm::vec3(Front.x, 0.0f, Front.z) * (velocity * 2); // Project Front onto XZ
-         
-        /*if (direction == FORWARD)
-            Position += Front * velocity; // Project Front onto XZ
-        if (direction == BACKWARD)
-            Position -= Front * velocity; // Project Front onto XZ
-        */
-        // Pan left and right
-        if (direction == LEFT)
-            Position -= Right * velocity;
-        if (direction == RIGHT)
-            Position += Right * velocity;
+    void prosessWorldMovement(float xoffset, float yoffset) {
+        // Scale offsets by sensitivity to control movement speed
+        xoffset *= MouseSensitivity * 0.1f;
+        yoffset *= MouseSensitivity * 0.1f;
+
+        // Create movement direction vectors
+        glm::vec3 forward = glm::normalize(glm::vec3(Front.x, 0.0f, Front.z)); // Forward direction (XZ plane)
+        glm::vec3 right = glm::normalize(glm::cross(forward, WorldUp));        // Right direction
+
+        // Update the position: xoffset affects the right vector, yoffset affects the forward vector
+        Position += right * -xoffset; // Negative to align with drag direction
+        Position += forward * -yoffset;
     }
 
+
     // processes input received from a mouse input system. Expects the offset value in both the x and y direction.
-    void ProcessMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch = true)
+    void processCameraMovement(float xoffset, float yoffset, GLboolean constrainPitch = true)
     {
 
         

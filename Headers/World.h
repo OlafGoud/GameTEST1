@@ -1,66 +1,119 @@
 #pragma once
-
-#ifndef WORLD_H
-#define WORLD_H
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-#include "stb_image.h"
+#include <iostream>
 #include <vector>
-#include <string>
-#include <fstream>
+#include <map>
 
-#include <glm/glm/glm.hpp>
-#include <glm/glm/gtc/matrix_transform.hpp>
-#include <glm/glm/gtc/type_ptr.hpp>
+enum GroundType
+{
+	SOIL1,
+	SOIL2,
+	STONE,
+	GRASS
+};
 
-#include "Model.h"
-#include "Shader.h"
-#include "Terrain.h"
-
-struct ModelObject {
-	Model model;
+struct Land
+{
+	GroundType type;
 	glm::vec3 position;
-	glm::vec3 rotation;
-	glm::vec3 scaling;
-	float angle;
 };
 
 
-class Scene {
+class World
+{
 public:
-	Scene(Camera cam);
-	~Scene();
-	Scene() {}
-
-
-	void loadScene(glm::mat4 view, glm::mat4 projection);
-	void loadWorld();
-	void loadObjects();
-	glm::vec3 snapTo3DGrid(glm::vec3 position);
-	void addComponent(glm::vec3 pos);
-	Shader* getTerrainShader();
-	Shader* getObjectShader();
-	void loadPreview(int number, glm::vec3 pos);
-	std::vector<std::vector<float>> getHeightMap() {
-		return terrain.getHeightMap();
-	}
-	void loadCube(glm::mat4 view, glm::mat4 projection, float amount);
+	World();
+	~World();
+	void render(Shader& shader, unsigned int& cubeVAO);
+	unsigned int loadTexture(char const* path);
+	void changeGroundType(glm::vec3 loc);
 private:
-	std::vector<std::vector<float>> worldHeihtMap;
-	Shader objectShader;
-	Shader terrainShader;
-	glm::vec3 lightPos = glm::vec3(0.0f, 100.0f, 0.0f);
-	std::vector<ModelObject> models;
-	float celSize = 0.25;
-	Camera cam1;
-	int SCR_HEIGHT = 800;
-	int SCR_WIDTH = 1400;
-	GLint maxTessLevel;
-	unsigned int terrainVAO, terrainVBO, terrainIBO;
-	int numStrips, numTrisPerStrip;
-	Terrain terrain = Terrain();
-	std::vector<Model> previewModels;
-	std::vector<std::vector<float>> terrainHeightPerPoint;
-	std::vector<ModelObject> cube;
+	std::vector<Land> worldMap;
+	std::map<GroundType, unsigned int> textureMap;
 };
-#endif
+
+World::World()
+{
+	std::cout << "adsf";
+	for (float i = -10; i < 10; i += 0.5) {
+		for (float n = -10; n < 10; n += 0.5) {
+			worldMap.push_back({GRASS, glm::vec3(i, 0.0f, n)});
+			cout << n << "\n";
+			cout << i << "\n";
+		}
+	}
+	textureMap[SOIL1] = loadTexture("resources/textures/soil1.png");
+	textureMap[STONE] = loadTexture("resources/textures/stone.png");
+	textureMap[SOIL2] = loadTexture("resources/textures/soil2.png");
+	textureMap[GRASS] = loadTexture("resources/textures/grass.png");
+	std::cout << "adsf";
+}
+
+World::~World()
+{
+}
+
+void World::render(Shader& shader, unsigned int& cubeVAO) {
+	for (auto land : worldMap) {
+		unsigned int texture = textureMap[land.type];
+		shader.setInt("inTexture", 0);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, texture);
+		glm::mat4 model = glm::mat4(1.0f);
+		model = glm::translate(model, land.position);
+		model = glm::scale(model, glm::vec3(0.5f)); // a smaller cube
+
+		shader.setMat4("model", model);
+		glBindVertexArray(cubeVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+	}
+}
+
+unsigned int World::loadTexture(char const* path)
+{
+	unsigned int textureID;
+	glGenTextures(1, &textureID);
+
+	int width, height, nrComponents;
+	unsigned char* data = stbi_load(path, &width, &height, &nrComponents, 0);
+	if (data)
+	{
+		GLenum format;
+		if (nrComponents == 1)
+			format = GL_RED;
+		else if (nrComponents == 3)
+			format = GL_RGB;
+		else if (nrComponents == 4)
+			format = GL_RGBA;
+
+		glBindTexture(GL_TEXTURE_2D, textureID);
+		glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+		glGenerateMipmap(GL_TEXTURE_2D);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		stbi_image_free(data);
+	}
+	else
+	{
+		std::cout << "Texture failed to load at path: " << path << std::endl;
+		stbi_image_free(data);
+	}
+
+	return textureID;
+}
+
+void World::changeGroundType(glm::vec3 loc) {
+	loc.x = std::round(loc.x * 2) / 2;
+	loc.y = std::round(loc.y * 2) / 2;
+	loc.z = std::round(loc.z * 2) / 2;
+	std::cout << "pos: " << loc.x << ", " << loc.y << ", " << loc.z << "\n";
+	for (Land& land : worldMap) {
+		if (land.position == loc) {
+			land.type = SOIL1;
+			std::cout << "foind" << "\n";
+		}
+	}
+}
