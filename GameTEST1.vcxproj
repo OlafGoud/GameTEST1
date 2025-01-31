@@ -144,6 +144,7 @@
     <ClCompile Include="Headers\code\stb_image.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Headers\Chunk.h" />
     <ClInclude Include="Headers\Game.h" />
     <ClInclude Include="Headers\Model.h" />
     <ClInclude Include="Headers\Shader.h" />
