@@ -8,6 +8,7 @@
 #include <map>
 #include "Shader.h"
 #include "Chunk.h"
+#include "stb_image.h"
 #define WorldChunk_SIZE 16  // Each WorldChunk is 16x16
 #define WORLD_HEIGHT 1  // Height in voxels
 

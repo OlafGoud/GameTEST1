@@ -3,16 +3,12 @@
 #include <glm/glm/gtc/matrix_transform.hpp>
 #include <iostream>
 #include <vector>
+#include "WorldObject.h"
+
 
 struct Voxel {
 	glm::vec3 position;
 	glm::vec3 color;
-};
-
-
-struct StaticObject
-{
-	Model model;
 };
 
 
@@ -27,7 +23,7 @@ public:
 	std::vector<Voxel> voxelList;
 
 private:
-	std::vector<StaticObject> staticObjectList;
+	std::vector<WorldObject> staticObjectList;
 	glm::vec2 chunkPosition;
 };
 

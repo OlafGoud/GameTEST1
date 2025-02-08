@@ -3,11 +3,8 @@
 #include <glm/glm/glm.hpp>
 #include <glm/glm/gtc/matrix_transform.hpp>
 #include <glm/glm/gtc/type_ptr.hpp>
-#include "Headers/Shader.h"
 #include "Headers/Camera.h"
-#include "Headers/Model.h"
 #include "Headers/Game.h"
-#include "Headers/stb_image.h"
 #include <iostream>
 
 
@@ -27,11 +24,7 @@ bool firstMouse = true;
 // timing
 GLFWwindow* window;
 
-
-int number = 0;
 std::vector<Game> gameInst;
-std::vector<WorldObjects> modelList;
-int selectedObjectNumber = -1;
 
 int main()
 {
