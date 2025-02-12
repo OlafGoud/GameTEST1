@@ -1,3 +1,7 @@
+
+#ifndef WORLDOBJECT
+#define WORLDOBJECT
+
 #pragma once
 #include <string>
 #include <glm/glm/glm.hpp>
@@ -6,6 +10,10 @@
 #include "Model.h"
 #include "Camera.h"
 #include "CarController.h"
+#include <glad/glad.h>
+#include "Shader.h"
+
+//#include "Game.h"
 
 class WorldObject {
 public:
@@ -42,18 +50,23 @@ class VehicleAttachment : public WorldObject {
 public:
 	VehicleAttachment() {};
 	~VehicleAttachment() {};
-	void buttonInteract(int button, int modifier) {};
+	virtual void buttonInteract(int button) { std::cout << "virtual"; };
 	void move() {};
+
+	bool working = false;
+	std::string derivedClassID = "VehicleAttachment";
+
 };
 
 
 class Vehicle : public Moveable {
 public:
-	Vehicle() {}
+	Vehicle(VehicleAttachment& att) {}
+	Vehicle() = default;
 	~Vehicle() {}
-	void addInput(bool forward, bool backward, bool turnLeft, bool turnRight, float deltaTime);
-	void getNewPosition(float deltaTime);
+	void addInput(bool forward, bool backward, bool turnLeft, bool turnRight, float deltaTime, Camera& camera, Shader& shader, VehicleAttachment& attachment);
 	CarController controller = CarController();
+	std::string attachmentID;
 };
 
 
@@ -61,7 +74,6 @@ class Tractor : public Vehicle {
 public:
 	Tractor(std::string modelPath, std::string objectID, glm::vec3 pos = glm::vec3(0.0f, 0.2f, 0.0f), float rotation = 0.0f, bool visable = true, glm::vec3 scale = glm::vec3(1.0f));
 	~Tractor() {};
-	VehicleAttachment attachment;
 };
 
 class Player : public Moveable {
@@ -75,17 +87,23 @@ public:
 
 class EmptyAttachment : public VehicleAttachment {
 public:
+	EmptyAttachment() { derivedClassID = "EmptyAttachment"; }
+
 };
 
 class TrailerAttachment : public VehicleAttachment {
 public:
+	TrailerAttachment(std::string modelPath, std::string objectID, glm::vec3 pos = glm::vec3(0.0f, 0.2f, 0.0f), float rotation = 0.0f, bool visable = true, glm::vec3 scale = glm::vec3(0.5f));
 	void move();
-	void buttonInteract(int button, int modifier);
+	void buttonInteract(int button);
 
 };
 
 class FixedAttachment : public VehicleAttachment {
 public:
+	FixedAttachment() {}
+	FixedAttachment(std::string modelPath, std::string objectID, glm::vec3 pos = glm::vec3(0.0f, 0.2f, 0.0f), float rotation = 0.0f, bool visable = true, glm::vec3 scale = glm::vec3(0.5f));
 	void move();
-	void buttonInteract(int button, int modifier);
+	void buttonInteract(int button) override;
 };
+#endif 

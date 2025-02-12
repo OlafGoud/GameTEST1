@@ -1,73 +1,48 @@
 #include "../CarController.h"
 
-void MovementController::addInput(bool forward, bool backward, bool turnLeft, bool turnRight, float deltaTime)
+glm::vec3 MovementController::update(bool forward, bool backward, bool turnLeft, bool turnRight, float deltaTime, float& vehicleRotation)
 {
-	if (turnLeft) {
-		//left
-		MovementController::currentSteeringRotation -= MovementController::steeringSpeed * deltaTime;
-		if (MovementController::currentSteeringRotation < -MovementController::maxSteeringRotation) {
-			MovementController::currentSteeringRotation = -MovementController::maxSteeringRotation;
-		}
-	} 
-	if (turnRight) {
-		MovementController::currentSteeringRotation += MovementController::steeringSpeed * deltaTime;
-		if (MovementController::currentSteeringRotation > MovementController::maxSteeringRotation) {
-			MovementController::currentSteeringRotation = MovementController::maxSteeringRotation;
-		}
-	}
 	if (forward) {
-		MovementController::currentSpeed += MovementController::acceleration * deltaTime;
-		if (MovementController::maxSpeed > MovementController::currentSpeed) {
-			MovementController::currentSpeed = MovementController::maxSpeed;
-		}
+		speed += acceleration * deltaTime;
+		if (speed > maxSpeed)
+			speed = maxSpeed;
 	}
-	if (backward) {
-		if (currentSpeed > 0.4f) {
-			MovementController::currentSpeed -= MovementController::brakingSpeed * deltaTime;
-			if (MovementController::currentSpeed < MovementController::maxBackwardsSpeed) {
-				MovementController::currentSpeed = -MovementController::maxBackwardsSpeed;
-			}
-		}
-		MovementController::currentSpeed -= MovementController::acceleration * deltaTime;
-		if (MovementController::currentSpeed < MovementController::maxBackwardsSpeed) {
-			MovementController::currentSpeed = -MovementController::maxBackwardsSpeed;
-		}
-	}
-}
-
-glm::vec3 MovementController::getNewPosition(glm::vec3 currentPosition, float deltaTime)
-{
-	float steeringAngleRad = glm::radians(currentSteeringRotation);
-
-	// Forward direction (assuming +X is forward)
-	glm::vec3 forwardDirection = glm::vec3(glm::cos(steeringAngleRad), 0.0f, glm::sin(steeringAngleRad));
-
-	// Calculate displacement
-	glm::vec3 displacement = forwardDirection * currentSpeed * deltaTime;
-
-	// Update position
-	currentPosition += displacement;
-
-	// Reduce steering towards zero
-	if (currentSteeringRotation > 0.3f) {
-		currentSteeringRotation = glm::max(0.0f, currentSteeringRotation - steeringCenteringSpeed * deltaTime);
-	}
-	else if (currentSteeringRotation < -0.3f) {
-		currentSteeringRotation = glm::min(0.0f, currentSteeringRotation + steeringCenteringSpeed * deltaTime);
+	// Gradual Deceleration
+	// Gradual Deceleration when no input
+	// Acceleration Backward
+	else if (backward) {
+		speed -= acceleration * deltaTime;
+		if (speed < -maxSpeed / 2) // Limit reverse speed
+			speed = -maxSpeed / 2;
 	}
 	else {
-		currentSteeringRotation = 0;
+		if (speed > 0) {
+			speed -= deceleration * deltaTime;
+			if (speed < 0)
+				speed = 0;
+		}
+		else if (speed < 0) {
+			speed += deceleration * deltaTime;
+			if (speed > 0)
+				speed = 0;
+		}
 	}
 
-	// Apply engine braking
-	if (currentSpeed > 0.3f) {
-		currentSpeed -= brakingSpeed * deltaTime;
+	// Steering
+	float rotation = 0.0f;
+	if (turnLeft) {
+		rotation = turnSpeed * deltaTime;
 	}
-	else if (currentSpeed < -0.3f) {
-		currentSpeed += brakingSpeed * deltaTime;
+	if (turnRight) {
+		rotation = -turnSpeed * deltaTime;
 	}
-	else {
-		currentSpeed = 0;
-	}
-	return currentPosition;
+	vehicleRotation += rotation;
+
+	// Apply steering using trigonometry
+	float radians = glm::radians(vehicleRotation);
+	direction.x = sin(radians);
+	direction.z = cos(radians);
+	direction = glm::normalize(direction);
+	glm::vec3 returnValue = direction * speed * deltaTime;
+	return returnValue;
 }

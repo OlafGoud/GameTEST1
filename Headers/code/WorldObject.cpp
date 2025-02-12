@@ -6,7 +6,7 @@ void WorldObject::render(Shader& shader) {
 	}
 	glm::mat4 matrix = glm::mat4(1.0f);
 	matrix = glm::translate(matrix, position);
-	matrix = glm::rotate(matrix, glm::radians(rotation), glm::vec3(0.0f, 1.0f, 0.0f));
+	matrix = glm::rotate(matrix, glm::radians(rotation + 180), glm::vec3(0.0f, 1.0f, 0.0f));
 	matrix = glm::scale(matrix, scaling);
 	shader.setMat4("model", matrix);
 	model.Draw(shader);
@@ -57,6 +57,7 @@ Tractor::Tractor(std::string modelPath, std::string objectID, glm::vec3 pos, flo
 	Tractor::rotation = rotation;
 	Tractor::visableToRender = visable;
 	Tractor::scaling = scale;
+	Tractor::attachmentID = "01klds";
 
 }
 
@@ -71,12 +72,19 @@ Player::Player(std::string modelPath, std::string objectID, glm::vec3 pos, float
 	Player::maxSpeed = speed;
 }
 
-void Vehicle::addInput(bool forward, bool backward, bool turnLeft, bool turnRight, float deltaTime)
+void Vehicle::addInput(bool forward, bool backward, bool turnLeft, bool turnRight, float deltaTime, Camera& camera, Shader& shader, VehicleAttachment& attachment)
 {
-	Vehicle::controller.addInput(forward, backward, turnLeft, turnRight, deltaTime);
+	glm::vec3 displacement = Vehicle::controller.update(forward, backward, turnLeft, turnRight, deltaTime, rotation);
+	Vehicle::position += displacement;
+	camera.moveCamWithObject(displacement);
+	if (!(attachmentID == "-1")) {
+		if (attachment.derivedClassID == "FixedAttachment") {
+			attachment.position.x = position.x - 0.9f * sin(glm::radians(rotation));
+			attachment.position.z = position.z - 0.9f * cos(glm::radians(rotation));
+			attachment.rotation = Vehicle::rotation + 90;
+		}
+	}
+	
 }
 
-void Vehicle::getNewPosition(float deltaTime)
-{
-	Vehicle::position = Vehicle::controller.getNewPosition(Vehicle::position, deltaTime);
-}
+
