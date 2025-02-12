@@ -51,7 +51,6 @@ public:
 	VehicleAttachment() {};
 	~VehicleAttachment() {};
 	virtual void buttonInteract(int button) { std::cout << "virtual"; };
-	void move() {};
 
 	bool working = false;
 	std::string derivedClassID = "VehicleAttachment";
@@ -94,7 +93,6 @@ public:
 class TrailerAttachment : public VehicleAttachment {
 public:
 	TrailerAttachment(std::string modelPath, std::string objectID, glm::vec3 pos = glm::vec3(0.0f, 0.2f, 0.0f), float rotation = 0.0f, bool visable = true, glm::vec3 scale = glm::vec3(0.5f));
-	void move();
 	void buttonInteract(int button);
 
 };
@@ -103,7 +101,6 @@ class FixedAttachment : public VehicleAttachment {
 public:
 	FixedAttachment() {}
 	FixedAttachment(std::string modelPath, std::string objectID, glm::vec3 pos = glm::vec3(0.0f, 0.2f, 0.0f), float rotation = 0.0f, bool visable = true, glm::vec3 scale = glm::vec3(0.5f));
-	void move();
 	void buttonInteract(int button) override;
 };
 #endif 

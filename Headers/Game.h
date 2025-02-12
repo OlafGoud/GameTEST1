@@ -8,6 +8,7 @@
 #include <typeinfo>
 #include <map>
 #include <string>
+#include <memory>
 
 
 class Game
@@ -81,16 +82,17 @@ public:
     std::string SelectedVehicleNumber = "-1";
     int keysForAttachment[3] = {GLFW_KEY_E, GLFW_KEY_R, GLFW_KEY_T};
     std::vector<VehicleAttachment> attachmentList;
-    std::map<std::string, Vehicle> vehicleMap;
-    std::map<std::string, VehicleAttachment> vehicleAttachmentMap;
+    std::map<std::string, std::shared_ptr<Vehicle>> vehicleMap;
+    std::map<std::string, std::shared_ptr<VehicleAttachment>> vehicleAttachmentMap;
 };
 
 Game::Game(int height, int width, GLFWwindow* window) {
     Game::window = window;
     
-    vehicleAttachmentMap.insert(std::pair<std::string, VehicleAttachment>("01klds", FixedAttachment("resources/objects/machines/seeder.obj", "01klds", glm::vec3(3.0f, 0.2, 5.0f), 0.0f, true, glm::vec3(0.8f, 0.8f, 0.8f))));
-    vehicleMap.insert(std::pair<std::string, Vehicle>("00-00-00", Tractor("resources/objects/tractor/tractor1.obj", "00-00-00", glm::vec3(3.0f, 0.2f, 5.0f), 0.0f, true, glm::vec3(1.0f, 1.0f, 1.0f))));
-    vehicleMap.insert(std::pair<std::string, Vehicle>("00-00-01", Tractor("resources/objects/tractor/tractor1.obj", "00-00-01", glm::vec3(-3.0f, 0.2f, -2.0f), 0.0f, true, glm::vec3(1.0f, 1.0f, 1.0f))));
+      
+    vehicleAttachmentMap.insert(std::pair<std::string, std::shared_ptr<VehicleAttachment>>("01klds", std::make_shared<FixedAttachment>("resources/objects/machines/seeder.obj", "01klds", glm::vec3(3.0f, 0.2, 5.0f), 0.0f, true, glm::vec3(0.8f, 0.8f, 0.8f))));
+    vehicleMap.insert(std::pair<std::string, std::shared_ptr<Vehicle>>("00-00-00", std::make_shared<Tractor>("resources/objects/tractor/tractor1.obj", "00-00-00", glm::vec3(3.0f, 0.2f, 5.0f), 0.0f, true, glm::vec3(1.0f, 1.0f, 1.0f))));
+    vehicleMap.insert(std::pair<std::string, std::shared_ptr<Vehicle>>("00-00-01", std::make_shared<Tractor>("resources/objects/tractor/tractor1.obj", "00-00-01", glm::vec3(-3.0f, 0.2f, -2.0f), 0.0f, true, glm::vec3(1.0f, 1.0f, 1.0f))));
 
 
     glGenVertexArrays(1, &cubeVAO);
@@ -146,14 +148,14 @@ void Game::render() {
         groundShader.setMat4("view", view);
         world.render(groundShader, cubeVAO, camera.Position);
         /**/
-        std::map<std::string, Vehicle>::iterator vehicleItterator;
-        for (vehicleItterator = vehicleMap.begin(); vehicleItterator != vehicleMap.end(); vehicleItterator++) {
-            vehicleItterator->second.render(objShader);
+        for (auto it = vehicleMap.begin(); it != vehicleMap.end(); ++it) {
+            it->second->render(objShader);
         }
-        std::map<std::string, VehicleAttachment>::iterator attachmentItterator;
-        for (attachmentItterator = vehicleAttachmentMap.begin(); attachmentItterator != vehicleAttachmentMap.end(); attachmentItterator++) {
-            attachmentItterator->second.render(objShader);
+
+        for (auto it = vehicleAttachmentMap.begin(); it != vehicleAttachmentMap.end(); ++it) {
+            it->second->render(objShader);
         }
+
         player.render(objShader);
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -172,14 +174,12 @@ void Game::handleVehicleStepIn() {
         return;
     }
     lastInteraction = lastFrame;
-    std::map<std::string, Vehicle>::iterator vehicleItterator;
-    for (vehicleItterator = vehicleMap.begin(); vehicleItterator != vehicleMap.end(); vehicleItterator++) {
-        Vehicle vehicle = vehicleItterator->second;
+    for (auto it = vehicleMap.begin(); it != vehicleMap.end(); ++it) {
         if (player.visableToRender == false) {
-            if (vehicle.objectID == SelectedVehicleNumber) {
+            if (it->second->objectID == SelectedVehicleNumber) {
                 SelectedVehicleNumber = "-1";
-                std::cout << "vehicle unselected" << "\n";                
-                player.position = vehicle.position + glm::vec3(0.4, 0, 0.4);
+                std::cout << "vehicle unselected" << "\n";
+                player.position = it->second->position + glm::vec3(0.4, 0, 0.4);
                 camera.Target = player.position;
                 camera.moveCamWithObject(glm::vec3(0.0f));
                 player.visableToRender = true;
@@ -187,14 +187,15 @@ void Game::handleVehicleStepIn() {
             }
         }
 
-        if (glm::distance(vehicle.position, player.position) < 0.5f) {
-            SelectedVehicleNumber = vehicle.objectID;
+        if (glm::distance(it->second->position, player.position) < 0.5f) {
+            SelectedVehicleNumber = it->second->objectID;
             std::cout << "vehicle selected" << "\n";
-            camera.Target = vehicle.position;
+            camera.Target = it->second->position;
             camera.moveCamWithObject(glm::vec3(0.0f));
             player.visableToRender = false;
         }
     }
+
 }
 
 
@@ -204,26 +205,23 @@ void Game::handleWASDMovement(bool forward, bool backward, bool turnLeft, bool t
         player.move(forward, backward, turnLeft, turnRight, deltaTime, camera);
         return;
     }
-    Vehicle& vehicle = Game::vehicleMap[SelectedVehicleNumber];
+    Vehicle& vehicle = *Game::vehicleMap[SelectedVehicleNumber];
     for (int key : keysForAttachment) {
         if (glfwGetKey(window, key) == GLFW_PRESS) {
-            if (lastFrame - lastInteraction < 0.1) {
+            if (lastFrame - lastInteraction < 0.5) {
                 break;
             }
             if (vehicle.attachmentID == "-1") {
                 break;
             }
-            if(Game::vehicleAttachmentMap[vehicle.attachmentID].derivedClassID == "EmptyAttachment") {
+            if(Game::vehicleAttachmentMap[vehicle.attachmentID]->derivedClassID == "EmptyAttachment") {
                 break;
             }
 
-            VehicleAttachment att = Game::vehicleAttachmentMap[vehicle.attachmentID];
-            if (att.derivedClassID == "FixedAttachment") {
-                static_cast<FixedAttachment&>(att).buttonInteract(key);
-            }
+            Game::vehicleAttachmentMap[vehicle.attachmentID]->buttonInteract(key);
         }
     }
-    vehicle.addInput(forward, backward, turnLeft, turnRight, deltaTime, camera, objShader, Game::vehicleAttachmentMap[vehicle.attachmentID]);
+    vehicle.addInput(forward, backward, turnLeft, turnRight, deltaTime, camera, objShader, *Game::vehicleAttachmentMap[vehicle.attachmentID]);
 }
 
 void Game::processInput(GLFWwindow* window)

@@ -14,11 +14,12 @@ FixedAttachment::FixedAttachment(std::string modelPath, std::string objectID, gl
 void FixedAttachment::buttonInteract(int button) {
 	if (button == GLFW_KEY_R) {
 		if (FixedAttachment::working == true) {
-			FixedAttachment::position += glm::vec3(0.0f, 0.2f, 0.0f);
-			std::cout << "adsf\n";
+			FixedAttachment::position += glm::vec3(0.0f, 0.1f, 0.0f);
+			FixedAttachment::working = false;
 		}
 		else {
-			FixedAttachment::position += glm::vec3(0.0f, -0.2f, 0.0f);
+			FixedAttachment::position += glm::vec3(0.0f, -0.1f, 0.0f);
+			FixedAttachment::working = true;
 		}
 	}
 }
